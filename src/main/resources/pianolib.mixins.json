@@ -1,0 +1,16 @@
+{
+	"required": true,
+    "minVersion": "0.8.7",
+	"package": "sqlmc.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	},
+    "mixins": [
+    ],
+    "client": [
+    ]
+}

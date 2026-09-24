@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "pianolib",
+	"version": "${version}",
+	"name": "PianoLib",
+	"description": "88-key piano sample library for DiscJockeyPlus!",
+	"authors": [
+		"SQL_MC"
+	],
+	"contact": {
+		"homepage": "https://modrinth.com/mod/disc-jockey-plus",
+		"sources": "https://www.curseforge.com/minecraft/mc-mods/pianolib"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/pianolib/icon.png",
+	"mixins": [],
+	"environment": "client",
+	"entrypoints": {
+        "main": ["sqlmc.PianoLib"],
+		"client": [
+			"sqlmc.client.PianoLibClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": ">=26.3",
+		"java": ">=25",
+		"fabric-api": "*",
+		"disc_jockey_plus": ">=2.7.8"
+	}
+}
