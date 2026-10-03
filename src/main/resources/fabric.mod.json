@@ -9,7 +9,7 @@
 	],
 	"contact": {
 		"homepage": "https://modrinth.com/mod/disc-jockey-plus",
-		"sources": "https://www.curseforge.com/minecraft/mc-mods/pianolib"
+		"sources": "https://github.com/SQL-MC/pianolib"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/pianolib/icon.png",
@@ -26,6 +26,6 @@
 		"minecraft": ">=26.3",
 		"java": ">=25",
 		"fabric-api": "*",
-		"disc_jockey_plus": ">=2.7.8"
+		"disc_jockey_plus": ">=2.7.11"
 	}
 }
