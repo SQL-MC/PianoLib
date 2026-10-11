@@ -26,6 +26,6 @@
 		"minecraft": ">=26.3",
 		"java": ">=25",
 		"fabric-api": "*",
-		"disc_jockey_plus": ">=2.7.11"
+		"disc_jockey_plus": ">=2.8.0"
 	}
 }
