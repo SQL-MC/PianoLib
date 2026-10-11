@@ -1,116 +1,54 @@
 package sqlmc;
 
 import net.minecraft.resources.Identifier;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.sounds.SoundEvent;
 
-import java.lang.reflect.Method;
+import java.util.function.Supplier;
 
 /**
- * PianoLib 音效查询工具 —— 26.3 兼容版（无硬编码映射 API）。
+ * PianoLib 音效查询 —— NeoForge 26.3 版。
  *
- * 核心思路：不在源码里写死 "Identifier.of / RegistryEntry / Reference" 的具体签名，
- * 全部通过反射探测，适配任意 26.x 映射。这样无论你的映射里方法是 of(String)、
- * of(String,String)、fromNamespaceAndPath 还是 parse，都能编译并运行。
+ * 原版靠一堆反射去探测 Identifier 工厂和注册表返回值形态，是因为要同时兼容
+ * 26.x 各版本不断变化的 API。现在既然已经确定运行在 26.3 上，可以直接使用
+ * 已验证存在的方法，代码大幅简化：
+ *   - Identifier.fromNamespaceAndPath(ns, path)   —— Disc Jockey 项目中已验证可用
+ *   - 音效本体从 PianoLib.KEY_SUPPLIERS 数组直接取，完全不查注册表
  */
-public class PianoSounds {
+public final class PianoSounds {
 
-    /** ★ 必须与 PianoLib.MOD_ID 保持一致（本地常量，避免触发 PianoLib 类初始化引发循环依赖） */
+    /** 必须与 PianoLib.MOD_ID 保持一致（本地常量，避免与 PianoLib 类初始化互相触发） */
     private static final String MOD_ID = "pianolib";
 
     /**
-     * ★ 若你的 PianoAPI.getKeyIdentifier 里曾有「音高偏移」，在此调整（默认 0 = 无偏移）。
-     *   例如原逻辑是 key+12，就把这里改成 12。
+     * 键号偏移。PianoLib 的 sounds.json 中 key_0 = A0、key_39 = C4、key_87 = C8，
+     * 与标准钢琴键号一致，故偏移为 0。若你的音效命名另有一套偏移，在此调整。
      */
     private static final int KEY_BASE_OFFSET = 0;
 
-    // ================= Identifier 工厂（反射探测，类加载时执行一次） =================
-    private interface IdFactory { Identifier apply(String namespace, String path); }
-    private static volatile IdFactory ID_FACTORY;
+    private PianoSounds() {}
 
-    static {
-        try {
-            Class<?> idClass = Identifier.class;
-            // 优先用双参 of(ns, path)
-            Method of2 = findStatic(idClass, "of", String.class, String.class);
-            if (of2 != null) {
-                ID_FACTORY = (ns, p) -> invoke(of2, ns, p);
-            } else {
-                // 退化探测：of(String "ns:path") / fromNamespaceAndPath / parse / 构造器
-                final Method of1   = findStatic(idClass, "of", String.class);
-                final Method fnp   = findStatic(idClass, "fromNamespaceAndPath", String.class, String.class);
-                final Method parse = findStatic(idClass, "parse", String.class);
-                ID_FACTORY = (ns, p) -> {
-                    String joined = ns + ":" + p;
-                    if (of1 != null)   return invoke(of1, joined);
-                    if (fnp != null)   return invoke(fnp, ns, p);
-                    if (parse != null) return invoke(parse, joined);
-                    try { return (Identifier) idClass.getConstructor(String.class, String.class).newInstance(ns, p); }
-                    catch (Exception e) { throw new RuntimeException("[PianoLib] 无法构造 Identifier: " + joined, e); }
-                };
-            }
-            System.out.println("[PianoLib] Identifier 工厂就绪: " + describe(idClass));
-        } catch (Exception e) {
-            System.err.println("[PianoLib] Identifier 工厂探测失败: " + e);
-        }
-    }
-
-    private static Identifier invoke(Method m, Object... args) {
-        try { return (Identifier) m.invoke(null, args); }
-        catch (Exception e) { throw new RuntimeException(e); }
-    }
-    private static Method findStatic(Class<?> c, String name, Class<?>... params) {
-        try { return c.getMethod(name, params); } catch (NoSuchMethodException e) { return null; }
-    }
-    private static String describe(Class<?> c) {
-        StringBuilder sb = new StringBuilder(c.getName()).append(" [");
-        for (Method m : c.getMethods()) sb.append(m.getName()).append(' ');
-        return sb.append(']').toString();
-    }
-
-    // ================= 对外 API =================
-
-    /** 由名字构造 PianoLib 域内的 Identifier（供 PianoAPI / 内部调用）。 */
+    /** 构造 PianoLib 域内的 Identifier。 */
     public static Identifier identifierOf(String name) {
-        if (ID_FACTORY == null) return null;
-        return ID_FACTORY.apply(MOD_ID, name);
+        return Identifier.fromNamespaceAndPath(MOD_ID, name);
     }
 
     /**
-     * 根据钢琴键号取对应的 SoundEvent。
-     * ★ 26.3 关键改动：直接构造 identifier（打破与 PianoAPI 的循环依赖），
-     *   并通过反射解包注册表返回值（不引用 RegistryEntry 类型）。
+     * 根据钢琴键号取 SoundEvent（0 = A0，39 = C4，87 = C8）。
+     * 注册尚未完成时安全返回 null。
      */
     public static SoundEvent getKeySound(int key) {
-        Identifier id = identifierOf("key_" + (key + KEY_BASE_OFFSET));
-        if (id == null) return null;
-        Object raw = BuiltInRegistries.SOUND_EVENT.get(id);
-        return unwrap(raw);
-    }
+        int k = key + KEY_BASE_OFFSET;
+        Supplier<SoundEvent>[] arr = PianoLib.KEY_SUPPLIERS;
+        if (arr == null || k < 0 || k >= arr.length) return null;
 
-    /**
-     * 把注册表返回值统一转为 SoundEvent。
-     * 兼容三种形态：SoundEvent / Optional<SoundEvent> / Optional<Reference<SoundEvent>> / Reference<SoundEvent>。
-     */
-    private static SoundEvent unwrap(Object raw) {
-        if (raw == null) return null;
-        if (raw instanceof SoundEvent) return (SoundEvent) raw;       // 形态A
-        Class<?> c = raw.getClass();
-        // 形如 Optional<...>：调 orElse(null) 取内层
-        Method orElse = findMethod(c, "orElse", Object.class);
-        if (orElse != null) {
-            try { return unwrap(orElse.invoke(raw, (Object) null)); } // 递归：内层可能是 Reference 或 SoundEvent
-            catch (ReflectiveOperationException ignored) { /* fall through */ }
+        Supplier<SoundEvent> supplier = arr[k];
+        if (supplier == null) return null;
+
+        try {
+            return supplier.get();
+        } catch (Throwable t) {
+            // DeferredRegister 尚未完成注册时 get() 会抛异常，此处安全降级
+            return null;
         }
-        // 形如 RegistryEntry.Reference：调 value()
-        Method value = findMethod(c, "value");
-        if (value != null) {
-            try { return (SoundEvent) value.invoke(raw); }
-            catch (ReflectiveOperationException ignored) { return null; }
-        }
-        return null;
-    }
-    private static Method findMethod(Class<?> c, String name, Class<?>... params) {
-        try { return c.getMethod(name, params); } catch (NoSuchMethodException e) { return null; }
     }
 }

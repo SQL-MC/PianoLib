@@ -1,19 +1,19 @@
 package sqlmc.client;
 
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import com.mojang.logging.LogUtils;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import sqlmc.api.PianoAPI;
 
-public class PianoLibClient implements ClientModInitializer {
-    private static final Logger LOGGER = LoggerFactory.getLogger("PianoLib");
+public final class PianoLibClient {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
-    @Override
-    public void onInitializeClient() {
-        LOGGER.info("PianoLib: client init, available={}", PianoAPI.isAvailable());
-        ClientLifecycleEvents.CLIENT_STARTED.register(mc ->
-            PianoAPI.playPianoKey(39, 1.0f)
-        );
+    private PianoLibClient() {}
+
+    /** 由 PianoLib 主类在 mod 总线上注册，不再使用 @EventBusSubscriber */
+    public static void onClientSetup(FMLClientSetupEvent event) {
+        // 此阶段 DeferredRegister 已完成注册，88 个 SoundEvent 可用
+        PianoAPI.setAvailable(true);
+        LOGGER.info("PianoLib: client setup done, available=true");
     }
 }
