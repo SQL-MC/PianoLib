@@ -22,10 +22,10 @@
 		]
 	},
 	"depends": {
-		"fabricloader": ">=0.19.5",
+		"fabricloader": ">=0.20.0",
 		"minecraft": ">=26.3",
 		"java": ">=25",
 		"fabric-api": "*",
-		"disc_jockey_plus": ">=2.8.0"
+		"disc_jockey_plus": ">=2.8.5"
 	}
 }
